@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES6",                  // Target ES6 JavaScript version
+    "module": "CommonJS",              // Use CommonJS module system (Node.js compatible)
+    "rootDir": "./",                   // Root directory where TypeScript source code lives
+    "outDir": "./dist",                // Output directory for compiled JavaScript files
+    "esModuleInterop": true,           // Improves compatibility with ES6 modules
+    "strict": true,                     // Enable strict type-checking
+    "forceConsistentCasingInFileNames": true, // Ensure consistent file casing
+    "skipLibCheck": true,              // Skip type checking of declaration files
+    "noImplicitAny": true,             // Avoid implicit `any` types
+    "resolveJsonModule": true,         // Import JSON files as modules
+    "strictNullChecks": true,          // Strict null and undefined checks
+    "strictPropertyInitialization": true, // Ensure properties are initialized
+    "moduleResolution": "node",        // Resolve modules in Node.js style
+    "allowSyntheticDefaultImports": true // Allow default imports for modules without default exports
+  },
+  "include": ["server.ts"],            // Include your source files
+  "exclude": ["node_modules", "dist"]  // Exclude generated and dependency files
+}
