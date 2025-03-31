@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
-import Peer from 'peerjs';
+import Peer, { DataConnection } from 'peerjs';
 
 const App = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -85,18 +85,17 @@ const App = () => {
 
   //sender handler
   const handleShare = () => {
-    //initiate sender peer connection
+    // Initiate sender peer connection
     const senderPeer = new Peer();
     senderPeer.on('open', (id) => {
       // Emit the peer ID to the server
       socket?.emit('peer-id', id);
       const link = `${window.location.origin}/?peerId=${id}`;
-      setGeneratedLink(link); //generate a link for other peers to connect
+      setGeneratedLink(link); // Generate a link for other peers to connect
     });
-
-    //handling receiver connection
+  
+    // Handling receiver connection
     senderPeer.on('connection', (conn) => {
-
       conn.on('open', () => {
         // Send file metadata
         const fileMetadata = {
@@ -105,35 +104,63 @@ const App = () => {
           type: file?.type,
         };
         conn.send({ type: 'file-metadata', metadata: fileMetadata });
-
+  
         // Read and send the file in chunks
-        const reader = new FileReader();
-        reader.onload = () => {
+        const sendFile = (file: File, conn: DataConnection) => {
           const chunkSize = 64 * 1024; // 64 KB chunks
-          const buffer = reader.result as ArrayBuffer;
-
-          for (let i = 0; i < buffer.byteLength; i += chunkSize) {
-            const chunk = buffer.slice(i, i + chunkSize);
-            conn.send({ type: 'file-chunk', chunk });
-          }
-
-          // Notify the receiver that the file transfer is complete
-          conn.send({ type: 'file-transfer-complete' });
+          let offset = 0;
+  
+          const streamFile = () => {
+            if (offset < file.size) {
+              // Slice the file into a chunk
+              const chunk = file.slice(offset, offset + chunkSize);
+  
+              const reader = new FileReader();
+              reader.onload = (e) => {
+                // Send the chunk to the receiver
+                conn.send({
+                  type: 'file-chunk',
+                  chunk: e.target?.result, // The chunk data
+                  offset, // Current offset
+                });
+  
+                // Move to the next chunk
+                offset += chunkSize;
+                streamFile(); // Recursive call to send the next chunk
+              };
+  
+              // Handle errors during file reading
+              reader.onerror = () => {
+                console.error('Error reading file chunk');
+              };
+  
+              // Read the chunk as an ArrayBuffer
+              reader.readAsArrayBuffer(chunk);
+            } else {
+              // Notify the receiver that the transfer is complete
+              conn.send({ type: 'file-transfer-complete' });
+              console.log('File transfer complete');
+            }
+          };
+  
+          // Start the streaming process
+          streamFile();
         };
-
-        reader.readAsArrayBuffer(file!);
+  
+        // Call the sendFile function
+        if (file) sendFile(file, conn);
       });
-
+  
       conn.on('close', () => {
         console.log('Connection closed');
       });
     });
-
+  
     senderPeer.on('error', (err) => {
       console.error('Peer error:', err);
     });
   };
-
+  
   const handleDownload = () => {
     if (receivedChunks.length > 0 && fileName) {
       // Combine all chunks into a single Blob
@@ -141,7 +168,7 @@ const App = () => {
       const url = URL.createObjectURL(fileBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = fileName;
+      a.download = `bytebridge.${fileName}`; // Prepend 'bytebridge.' to the original file name
       a.click();
       URL.revokeObjectURL(url);
     }
